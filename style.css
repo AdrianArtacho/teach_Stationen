@@ -1,0 +1,100 @@
+:root {
+  --maxw: 1000px;
+}
+
+body {
+  margin: 0;
+  font-family: system-ui, -apple-system, Segoe UI, Roboto, Helvetica, Arial, sans-serif;
+  line-height: 1.35;
+}
+
+.topbar {
+  padding: 18px 16px;
+  border-bottom: 1px solid #e6e6e6;
+}
+
+.topbar h1 {
+  margin: 0 0 6px 0;
+  font-size: 20px;
+}
+
+.hint {
+  margin: 0;
+  color: #555;
+  font-size: 13px;
+}
+
+#app {
+  padding: 16px;
+  max-width: var(--maxw);
+  margin: 0 auto;
+}
+
+.section {
+  margin: 18px 0 28px 0;
+  padding-bottom: 26px;
+  border-bottom: 1px solid #eee;
+}
+
+.section:last-child {
+  border-bottom: none;
+}
+
+.section-title {
+  margin: 0 0 6px 0;
+  font-size: 18px;
+}
+
+.section-subtitle {
+  margin: 0 0 12px 0;
+  font-style: italic;
+  color: #444;
+}
+
+.stage {
+  position: relative;
+  width: 100%;
+  overflow: hidden;
+  border-radius: 10px;
+  border: 1px solid #e9e9e9;
+  background: #fafafa;
+}
+
+.stage img {
+  display: block;
+  width: 100%;
+  height: auto;
+}
+
+.stage svg.overlay {
+  position: absolute;
+  inset: 0;
+  width: 100%;
+  height: 100%;
+}
+
+a.marker {
+  cursor: pointer;
+  text-decoration: none;
+}
+
+.marker text {
+  font-size: 18px;
+  font-weight: 600;
+  paint-order: stroke;
+  stroke: white;
+  stroke-width: 4px;
+  stroke-linejoin: round;
+}
+
+.loading, .error {
+  padding: 16px;
+  border: 1px solid #eee;
+  border-radius: 10px;
+  background: #fafafa;
+}
+
+.error {
+  border-color: #ffd2d2;
+  background: #fff5f5;
+}
