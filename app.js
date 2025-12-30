@@ -15,8 +15,8 @@ function getCsvUrlFromQuery() {
 }
 
 // Optional: normalize URL in address bar
-u.searchParams.set("csv", csv);
-window.history.replaceState({}, "", u.toString());
+// u.searchParams.set("csv", csv);
+// window.history.replaceState({}, "", u.toString());
 
 
 function isIntegerCell(value) {
