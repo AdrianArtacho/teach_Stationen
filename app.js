@@ -1,7 +1,23 @@
 function getCsvUrlFromQuery() {
   const u = new URL(window.location.href);
-  return u.searchParams.get("csv");
+  let csv = u.searchParams.get("csv");
+  if (!csv) return null;
+
+  // If it already looks encoded, keep it
+  const looksEncoded = /%[0-9A-Fa-f]{2}/.test(csv);
+
+  if (!looksEncoded) {
+    // Encode everything, but keep protocol readable for debugging
+    csv = encodeURIComponent(csv);
+  }
+
+  return csv;
 }
+
+// Optional: normalize URL in address bar
+u.searchParams.set("csv", csv);
+window.history.replaceState({}, "", u.toString());
+
 
 function isIntegerCell(value) {
   return typeof value === "string" && /^[0-9]+$/.test(value.trim());
