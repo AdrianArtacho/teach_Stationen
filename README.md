@@ -16,7 +16,7 @@ Each image can contain **clickable markers** (circle + label) positioned in pixe
 * 🧩 Multiple sections per CSV
 * 🌐 Works on **GitHub Pages**
 * 🔗 Easy embedding via `<iframe>`
-* 🔒 No data stored in the repo (CSV URL passed via query string)
+* 🔒 No data stored in the repo ([CSV URL passed via query string](https://adrianartacho.github.io/UrlEncode/))
 
 ---
 
@@ -65,7 +65,7 @@ The CSV defines **sections** and **items**.
 A row whose **first column is an integer** starts a new section:
 
 ```
-0, imageURL, title, subtitle, 100%, -150
+0, image, title, subtitle, 100%, -150
 ```
 
 | Column | Meaning                                                    |
@@ -125,9 +125,9 @@ Markers are rendered as:
 
    * Format: **CSV**
    * Sheet: desired sheet
-5. Copy the generated CSV URL
+5. Copy the generated [CSV URL](https://adrianartacho.github.io/UrlEncode/)
 
-Typical Google Sheets CSV URL:
+Typical Google Sheets [CSV URL](https://adrianartacho.github.io/UrlEncode/):
 
 ```
 https://docs.google.com/spreadsheets/d/e/XXXX/pub?gid=0&single=true&output=csv
@@ -144,7 +144,7 @@ https://YOURNAME.github.io/YOURREPO/?csv=URL_ENCODED_CSV_URL
 
 ```
 
-The CSV URL **must be URL-encoded**.
+The CSV URL [**must be URL-encoded**](https://adrianartacho.github.io/UrlEncode/).
 
 ---
 
