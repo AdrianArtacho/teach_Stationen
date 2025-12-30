@@ -235,13 +235,13 @@ function createSectionEl(section) {
       circle.setAttribute("r", String(it.radius));
       circle.setAttribute("fill", it.color);
       circle.setAttribute("fill-opacity", "0.5");
-
+      
       const text = document.createElementNS("http://www.w3.org/2000/svg", "text");
-      // Label slightly to the right of the circle
-      text.setAttribute("x", String(it.x + it.radius + 8));
+      // Center text inside the circle
+      text.setAttribute("x", String(it.x));
       text.setAttribute("y", String(it.y));
-      text.setAttribute("dominant-baseline", "middle");
-      text.setAttribute("text-anchor", "start");
+      text.setAttribute("text-anchor", "middle");        // horizontal centering
+      text.setAttribute("dominant-baseline", "middle");  // vertical centering
       text.textContent = it.name;
 
       a.appendChild(circle);
