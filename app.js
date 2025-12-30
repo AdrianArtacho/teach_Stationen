@@ -1,17 +1,6 @@
 function getCsvUrlFromQuery() {
   const u = new URL(window.location.href);
-  let csv = u.searchParams.get("csv");
-  if (!csv) return null;
-
-  // If it already looks encoded, keep it
-  const looksEncoded = /%[0-9A-Fa-f]{2}/.test(csv);
-
-  if (!looksEncoded) {
-    // Encode everything, but keep protocol readable for debugging
-    csv = encodeURIComponent(csv);
-  }
-
-  return csv;
+  return u.searchParams.get("csv");
 }
 
 // Optional: normalize URL in address bar
