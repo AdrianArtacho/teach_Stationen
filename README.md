@@ -1,6 +1,6 @@
 # CSV-Driven Image Overlay (GitHub Pages)
 
-This project renders **interactive image overlays** from a **public CSV file** (e.g. Google Sheets → CSV), using **pure client-side JavaScript**.
+This project renders [**interactive image overlays**](https://adrianartacho.github.io/teach_Stationen/?csv=https%3A%2F%2Fdocs.google.com%2Fspreadsheets%2Fd%2Fe%2F2PACX-1vQVMpMr2pzAZBuERnNFwrIvNxWO3_qyv4b8b-pLiOcXOUShz2WTSaVlmwHwl85pWWgsFzrP8EfmRcxF%2Fpub%3Fgid%3D0%26single%3Dtrue%26output%3Dcsv) from a **public CSV file** (e.g. Google Sheets → CSV), using **pure client-side JavaScript**.
 It is designed to run on **GitHub Pages** and be **embedded anywhere** (WordPress, static sites, LMS platforms) via an `<iframe>`.
 
 Each image can contain **clickable markers** (circle + label) positioned in pixel coordinates, with links attached.
@@ -141,8 +141,6 @@ Open the GitHub Pages URL with a `csv` query parameter:
 
 ```
 https://YOURNAME.github.io/YOURREPO/?csv=URL_ENCODED_CSV_URL
-
-https://adrianartacho.github.io/teach_Stationen/?csv=https%3A%2F%2Fdocs.google.com%2Fspreadsheets%2Fd%2Fe%2F2PACX-1vQVMpMr2pzAZBuERnNFwrIvNxWO3_qyv4b8b-pLiOcXOUShz2WTSaVlmwHwl85pWWgsFzrP8EfmRcxF%2Fpub%3Fgid%3D0%26single%3Dtrue%26output%3Dcsv
 
 ```
 
