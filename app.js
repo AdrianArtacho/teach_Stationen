@@ -3,11 +3,6 @@ function getCsvUrlFromQuery() {
   return u.searchParams.get("csv");
 }
 
-// Optional: normalize URL in address bar
-// u.searchParams.set("csv", csv);
-// window.history.replaceState({}, "", u.toString());
-
-
 function isIntegerCell(value) {
   return typeof value === "string" && /^[0-9]+$/.test(value.trim());
 }
