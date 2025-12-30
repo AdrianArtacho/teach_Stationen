@@ -1,3 +1,25 @@
+// app.js
+// CSV-driven image overlay (GitHub Pages friendly)
+// Supports section rows like:
+// 0, imageURL, title, subtitle, 100%, -150
+// where:
+// - col A: integer section id
+// - col B: section image URL
+// - col C: section title (optional)
+// - col D: section subtitle (optional)
+// - col E: section scale percent as "100%" (optional; default 100%)
+// - col F: title Y offset in px (optional; e.g. -150 means move DOWN 150px into the image)
+//
+// Item rows (under a section) like:
+// Roland, https://link, 100, 100, green, 15
+// where:
+// - col A: label
+// - col B: link URL
+// - col C: x
+// - col D: y
+// - col E: color (default green)
+// - col F: radius (default 15)
+
 function getCsvUrlFromQuery() {
   const u = new URL(window.location.href);
   return u.searchParams.get("csv");
@@ -59,7 +81,27 @@ function parseCsv(text) {
   }
 
   // trim cells
-  return rows.map(r => r.map(c => (c ?? "").trim()));
+  return rows.map((r) => r.map((c) => (c ?? "").trim()));
+}
+
+function parsePercentCell(cell, fallback = 100) {
+  if (cell == null) return fallback;
+  const s = String(cell).trim();
+  if (!s) return fallback;
+
+  // Accept "100%", "100", " 50 % "
+  const m = s.match(/^(-?\d+(?:\.\d+)?)\s*%?$/);
+  if (!m) return fallback;
+  const v = parseFloat(m[1]);
+  return Number.isFinite(v) ? v : fallback;
+}
+
+function parseNumberCell(cell, fallback = 0) {
+  if (cell == null) return fallback;
+  const s = String(cell).trim();
+  if (!s) return fallback;
+  const v = parseFloat(s);
+  return Number.isFinite(v) ? v : fallback;
 }
 
 function rowsToSections(rows) {
@@ -68,32 +110,35 @@ function rowsToSections(rows) {
 
   for (const r of rows) {
     const a = (r[0] ?? "").trim();
-
     if (!a) continue;
 
+    // SECTION ROW
     if (isIntegerCell(a)) {
+      const scalePercent = parsePercentCell(r[4], 100);
+      const titleYOffsetPx = parseNumberCell(r[5], 0);
+
       current = {
         id: parseInt(a, 10),
         imageUrl: (r[1] ?? "").replace(/^"(.*)"$/, "$1").trim(),
         title: (r[2] ?? "").trim(),
         subtitle: (r[3] ?? "").trim(),
+        scalePercent, // numeric, e.g. 100 means 100%
+        titleYOffsetPx, // numeric, e.g. -150 means move DOWN 150px
         items: [],
       };
       sections.push(current);
       continue;
     }
 
-    if (!current) {
-      // ignore item rows before first section row
-      continue;
-    }
+    // ITEM ROW (must appear after first section row)
+    if (!current) continue;
 
     const name = a;
     const linkUrl = (r[1] ?? "").replace(/^"(.*)"$/, "$1").trim();
-    const x = parseFloat((r[2] ?? "").trim());
-    const y = parseFloat((r[3] ?? "").trim());
+    const x = parseNumberCell(r[2], NaN);
+    const y = parseNumberCell(r[3], NaN);
     const color = ((r[4] ?? "green").trim() || "green");
-    const radius = parseFloat(((r[5] ?? "15").trim() || "15"));
+    const radius = parseNumberCell(r[5], 15);
 
     if (!Number.isFinite(x) || !Number.isFinite(y)) continue;
 
@@ -107,22 +152,55 @@ function createSectionEl(section) {
   const el = document.createElement("section");
   el.className = "section";
 
-  if (section.title) {
-    const h = document.createElement("h2");
-    h.className = "section-title";
-    h.textContent = section.title;
-    el.appendChild(h);
-  }
-
-  if (section.subtitle) {
-    const p = document.createElement("p");
-    p.className = "section-subtitle";
-    p.textContent = section.subtitle;
-    el.appendChild(p);
-  }
-
+  // Stage first, because overlay titles may live inside it
   const stage = document.createElement("div");
   stage.className = "stage";
+
+  // Apply scale as width percentage (centered)
+  const sp = Number.isFinite(section.scalePercent) ? section.scalePercent : 100;
+  stage.style.width = `${sp}%`;
+  stage.style.margin = "0 auto";
+
+  // Decide whether to overlay title (inside image) or keep it above image
+  const dyPx = Number.isFinite(section.titleYOffsetPx) ? section.titleYOffsetPx : 0;
+  const shouldOverlayTitle = dyPx !== 0;
+
+  if (!shouldOverlayTitle) {
+    if (section.title) {
+      const h = document.createElement("h2");
+      h.className = "section-title";
+      h.textContent = section.title;
+      el.appendChild(h);
+    }
+    if (section.subtitle) {
+      const p = document.createElement("p");
+      p.className = "section-subtitle";
+      p.textContent = section.subtitle;
+      el.appendChild(p);
+    }
+  } else if (section.title || section.subtitle) {
+    // Overlay block inside the stage
+    const titleWrap = document.createElement("div");
+    titleWrap.className = "title-overlay";
+
+    // Convention requested:
+    // -150 => move DOWN 150px into the image
+    titleWrap.style.transform = `translateY(${Math.abs(dyPx)}px)`;
+
+    if (section.title) {
+      const h = document.createElement("div");
+      h.className = "section-title overlay-title";
+      h.textContent = section.title;
+      titleWrap.appendChild(h);
+    }
+    if (section.subtitle) {
+      const p = document.createElement("div");
+      p.className = "section-subtitle overlay-subtitle";
+      p.textContent = section.subtitle;
+      titleWrap.appendChild(p);
+    }
+    stage.appendChild(titleWrap);
+  }
 
   const img = document.createElement("img");
   img.alt = section.title || `Section ${section.id}`;
@@ -132,19 +210,21 @@ function createSectionEl(section) {
   svg.classList.add("overlay");
   svg.setAttribute("xmlns", "http://www.w3.org/2000/svg");
 
-  // Wait for the image to know its natural size => correct viewBox scaling
   img.addEventListener("load", () => {
     const w = img.naturalWidth || 1;
     const h = img.naturalHeight || 1;
     svg.setAttribute("viewBox", `0 0 ${w} ${h}`);
     svg.setAttribute("preserveAspectRatio", "xMinYMin meet");
 
-    // Clear (in case re-load)
+    // Clear (in case of reload)
     while (svg.firstChild) svg.removeChild(svg.firstChild);
 
     for (const it of section.items) {
       const a = document.createElementNS("http://www.w3.org/2000/svg", "a");
       a.classList.add("marker");
+
+      // SVG2 supports href; xlink:href kept for compatibility
+      a.setAttribute("href", it.linkUrl);
       a.setAttributeNS("http://www.w3.org/1999/xlink", "xlink:href", it.linkUrl);
       a.setAttribute("target", "_blank");
       a.setAttribute("rel", "noopener noreferrer");
@@ -157,7 +237,7 @@ function createSectionEl(section) {
       circle.setAttribute("fill-opacity", "0.5");
 
       const text = document.createElementNS("http://www.w3.org/2000/svg", "text");
-      // Put the label slightly to the right of the circle
+      // Label slightly to the right of the circle
       text.setAttribute("x", String(it.x + it.radius + 8));
       text.setAttribute("y", String(it.y));
       text.setAttribute("dominant-baseline", "middle");
