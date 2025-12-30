@@ -74,12 +74,14 @@ a.marker {
 }
 
 .marker text {
-  font-size: 18px;
+  font-size: 16px;          /* adjust as needed */
   font-weight: 600;
+  fill: #000;
   paint-order: stroke;
   stroke: white;
-  stroke-width: 4px;
+  stroke-width: 3px;
   stroke-linejoin: round;
+  pointer-events: none;     /* clicks go to the <a> */
 }
 
 .loading, .error {
