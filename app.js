@@ -1,24 +1,7 @@
 // app.js
 // CSV-driven image overlay (GitHub Pages friendly)
-// Supports section rows like:
-// 0, imageURL, title, subtitle, 100%, -150
-// where:
-// - col A: integer section id
-// - col B: section image URL
-// - col C: section title (optional)
-// - col D: section subtitle (optional)
-// - col E: section scale percent as "100%" (optional; default 100%)
-// - col F: title Y offset in px (optional; e.g. -150 means move DOWN 150px into the image)
-//
-// Item rows (under a section) like:
-// Roland, https://link, 100, 100, green, 15
-// where:
-// - col A: label
-// - col B: link URL
-// - col C: x
-// - col D: y
-// - col E: color (default green)
-// - col F: radius (default 15)
+// Adds: if item "linkUrl" is not a URL, it opens a popup bubble with that text.
+// Bubble supports markdown links: [label](https://example.com)
 
 function getCsvUrlFromQuery() {
   const u = new URL(window.location.href);
@@ -104,6 +87,53 @@ function parseNumberCell(cell, fallback = 0) {
   return Number.isFinite(v) ? v : fallback;
 }
 
+/** Treat as URL only if it’s something the browser can actually navigate to. */
+function isNavigableUrl(s) {
+  if (!s) return false;
+  const t = String(s).trim();
+  // allow absolute http(s) and mailto
+  return /^(https?:\/\/|mailto:)/i.test(t);
+}
+
+/** Basic HTML escaping to keep popup safe. */
+function escapeHtml(str) {
+  return String(str)
+    .replaceAll("&", "&amp;")
+    .replaceAll("<", "&lt;")
+    .replaceAll(">", "&gt;")
+    .replaceAll('"', "&quot;")
+    .replaceAll("'", "&#039;");
+}
+
+/**
+ * Very small markdown-link support:
+ * - [label](https://example.com)
+ * - Newlines become <br>
+ *
+ * Everything is escaped first, then link patterns are converted to <a>.
+ */
+function mdToSafeHtml(input) {
+  const escaped = escapeHtml(input);
+
+  // Convert markdown links: [text](url)
+  const linked = escaped.replace(
+    /\[([^\]]+)\]\(([^)]+)\)/g,
+    (_, label, url) => {
+      const href = url.trim();
+      // Only allow http(s) / mailto in rendered links
+      if (!isNavigableUrl(href)) {
+        return `${escapeHtml(label)} (${escapeHtml(href)})`;
+      }
+      const safeLabel = label; // already escaped
+      const safeHref = escapeHtml(href);
+      return `<a href="${safeHref}" target="_blank" rel="noopener noreferrer">${safeLabel}</a>`;
+    }
+  );
+
+  // Newlines -> <br>
+  return linked.replace(/\n/g, "<br>");
+}
+
 function rowsToSections(rows) {
   const sections = [];
   let current = null;
@@ -122,8 +152,8 @@ function rowsToSections(rows) {
         imageUrl: (r[1] ?? "").replace(/^"(.*)"$/, "$1").trim(),
         title: (r[2] ?? "").trim(),
         subtitle: (r[3] ?? "").trim(),
-        scalePercent, // numeric, e.g. 100 means 100%
-        titleYOffsetPx, // numeric, e.g. -150 means move DOWN 150px
+        scalePercent,
+        titleYOffsetPx,
         items: [],
       };
       sections.push(current);
@@ -134,7 +164,8 @@ function rowsToSections(rows) {
     if (!current) continue;
 
     const name = a;
-    const linkUrl = (r[1] ?? "").replace(/^"(.*)"$/, "$1").trim();
+    const rawLinkOrText = (r[1] ?? "").replace(/^"(.*)"$/, "$1").trim();
+
     const x = parseNumberCell(r[2], NaN);
     const y = parseNumberCell(r[3], NaN);
     const color = ((r[4] ?? "green").trim() || "green");
@@ -142,10 +173,30 @@ function rowsToSections(rows) {
 
     if (!Number.isFinite(x) || !Number.isFinite(y)) continue;
 
-    current.items.push({ name, linkUrl, x, y, color, radius });
+    current.items.push({
+      name,
+      linkOrText: rawLinkOrText,     // can be URL or plain text
+      isUrl: isNavigableUrl(rawLinkOrText),
+      x,
+      y,
+      color,
+      radius,
+    });
   }
 
   return sections;
+}
+
+function createPopupEl() {
+  const popup = document.createElement("div");
+  popup.className = "popup hidden";
+  popup.innerHTML = `
+    <button class="close" aria-label="Close">×</button>
+    <div class="content"></div>
+  `;
+  const closeBtn = popup.querySelector(".close");
+  closeBtn.addEventListener("click", () => popup.classList.add("hidden"));
+  return popup;
 }
 
 function createSectionEl(section) {
@@ -183,8 +234,7 @@ function createSectionEl(section) {
     const titleWrap = document.createElement("div");
     titleWrap.className = "title-overlay";
 
-    // Convention requested:
-    // -150 => move DOWN 150px into the image
+    // -150 => down by 150px
     titleWrap.style.transform = `translateY(${Math.abs(dyPx)}px)`;
 
     if (section.title) {
@@ -210,24 +260,110 @@ function createSectionEl(section) {
   svg.classList.add("overlay");
   svg.setAttribute("xmlns", "http://www.w3.org/2000/svg");
 
+  // Popup bubble lives inside stage so it overlays the image
+  const popup = createPopupEl();
+  stage.appendChild(popup);
+
+  function hidePopup() {
+    popup.classList.add("hidden");
+  }
+
+  // Close popup when clicking outside markers/popup
+  stage.addEventListener("click", (e) => {
+    const t = e.target;
+    if (t instanceof Element) {
+      if (t.closest(".popup")) return;
+      if (t.closest("a.marker")) return;
+    }
+    hidePopup();
+  });
+
   img.addEventListener("load", () => {
-    const w = img.naturalWidth || 1;
-    const h = img.naturalHeight || 1;
-    svg.setAttribute("viewBox", `0 0 ${w} ${h}`);
+    const naturalW = img.naturalWidth || 1;
+    const naturalH = img.naturalHeight || 1;
+
+    svg.setAttribute("viewBox", `0 0 ${naturalW} ${naturalH}`);
     svg.setAttribute("preserveAspectRatio", "xMinYMin meet");
 
     // Clear (in case of reload)
     while (svg.firstChild) svg.removeChild(svg.firstChild);
 
+    // Helper to position popup in *display* pixels
+    function positionPopupAt(pxX, pxY) {
+      const rect = stage.getBoundingClientRect();
+      const sx = rect.width / naturalW;
+      const sy = rect.height / naturalH;
+
+      const x = pxX * sx;
+      const y = pxY * sy;
+
+      // Place popup slightly above/right of marker; clamp inside stage
+      const pad = 8;
+      popup.style.left = "0px";
+      popup.style.top = "0px";
+      popup.classList.remove("hidden");
+
+      // First set near target, then clamp once we know popup size
+      popup.style.left = `${x + pad}px`;
+      popup.style.top = `${y + pad}px`;
+
+      // Clamp to stage
+      const pRect = popup.getBoundingClientRect();
+      const maxLeft = rect.left + rect.width - pRect.width - pad;
+      const maxTop = rect.top + rect.height - pRect.height - pad;
+
+      let newLeft = x + pad;
+      let newTop = y + pad;
+
+      // If it would overflow right/bottom, move to left/top side of marker
+      if (pRect.left > maxLeft) newLeft = x - pRect.width - pad;
+      if (pRect.top > maxTop) newTop = y - pRect.height - pad;
+
+      // Convert viewport coords to stage-local coords for final clamp
+      // (stage is positioned relative; popup is absolute inside it)
+      const stageRect = rect;
+      const clamp = (v, min, max) => Math.max(min, Math.min(max, v));
+
+      newLeft = clamp(newLeft, pad, rect.width - pRect.width - pad);
+      newTop = clamp(newTop, pad, rect.height - pRect.height - pad);
+
+      popup.style.left = `${newLeft}px`;
+      popup.style.top = `${newTop}px`;
+    }
+
+    // Reposition popup on resize (if visible)
+    let lastPopupPos = null;
+    function maybeRepositionPopup() {
+      if (popup.classList.contains("hidden")) return;
+      if (!lastPopupPos) return;
+      positionPopupAt(lastPopupPos.x, lastPopupPos.y);
+    }
+    window.addEventListener("resize", maybeRepositionPopup);
+
     for (const it of section.items) {
+      // Create a marker anchor for clickability + cursor
       const a = document.createElementNS("http://www.w3.org/2000/svg", "a");
       a.classList.add("marker");
 
-      // SVG2 supports href; xlink:href kept for compatibility
-      a.setAttribute("href", it.linkUrl);
-      a.setAttributeNS("http://www.w3.org/1999/xlink", "xlink:href", it.linkUrl);
-      a.setAttribute("target", "_blank");
-      a.setAttribute("rel", "noopener noreferrer");
+      if (it.isUrl) {
+        a.setAttribute("href", it.linkOrText);
+        a.setAttributeNS("http://www.w3.org/1999/xlink", "xlink:href", it.linkOrText);
+        a.setAttribute("target", "_blank");
+        a.setAttribute("rel", "noopener noreferrer");
+      } else {
+        // Make it behave like a clickable marker without navigation
+        a.setAttribute("href", "#");
+        a.addEventListener("click", (ev) => {
+          ev.preventDefault();
+          ev.stopPropagation();
+
+          const content = popup.querySelector(".content");
+          content.innerHTML = mdToSafeHtml(it.linkOrText || "");
+
+          lastPopupPos = { x: it.x, y: it.y };
+          positionPopupAt(it.x, it.y);
+        });
+      }
 
       const circle = document.createElementNS("http://www.w3.org/2000/svg", "circle");
       circle.setAttribute("cx", String(it.x));
@@ -235,13 +371,13 @@ function createSectionEl(section) {
       circle.setAttribute("r", String(it.radius));
       circle.setAttribute("fill", it.color);
       circle.setAttribute("fill-opacity", "0.5");
-      
+
       const text = document.createElementNS("http://www.w3.org/2000/svg", "text");
-      // Center text inside the circle
+      // Center label inside the circle
       text.setAttribute("x", String(it.x));
       text.setAttribute("y", String(it.y));
-      text.setAttribute("text-anchor", "middle");        // horizontal centering
-      text.setAttribute("dominant-baseline", "middle");  // vertical centering
+      text.setAttribute("text-anchor", "middle");
+      text.setAttribute("dominant-baseline", "middle");
       text.textContent = it.name;
 
       a.appendChild(circle);
