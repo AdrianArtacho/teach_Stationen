@@ -1,9 +1,16 @@
 # CSV-Driven Image Overlay (GitHub Pages)
 
-This project renders [**interactive image overlays**](https://adrianartacho.github.io/teach_Stationen/?csv=https%3A%2F%2Fdocs.google.com%2Fspreadsheets%2Fd%2Fe%2F2PACX-1vQVMpMr2pzAZBuERnNFwrIvNxWO3_qyv4b8b-pLiOcXOUShz2WTSaVlmwHwl85pWWgsFzrP8EfmRcxF%2Fpub%3Fgid%3D0%26single%3Dtrue%26output%3Dcsv) from a **public CSV file** (e.g. Google Sheets → CSV), using **pure client-side JavaScript**.
+This project renders **interactive image overlays** from a **public CSV file** (e.g. Google Sheets → CSV), using **pure client-side JavaScript**.
+
 It is designed to run on **GitHub Pages** and be **embedded anywhere** (WordPress, static sites, LMS platforms) via an `<iframe>`.
 
-Each image can contain **clickable markers** (circle + label) positioned in pixel coordinates, with links attached.
+Each image can contain **interactive markers** (circle + centered label) positioned in pixel coordinates.
+Markers can either:
+
+* open **external links**, or
+* display **contextual popup bubbles** with rich text and Markdown-style links.
+
+![stationen](img/stationen.png)
 
 ---
 
@@ -11,12 +18,21 @@ Each image can contain **clickable markers** (circle + label) positioned in pixe
 
 * 📄 **CSV-driven** (no backend, no build step)
 * 🖼 **Responsive images** with SVG overlays
-* 📍 **Clickable markers** (circle + centered label)
+* 📍 **Interactive markers** (circle + centered label)
+* 🧠 **Dual marker behavior**:
+
+  * URL → opens link
+  * Text → shows popup bubble
+* 💬 **Popup bubbles** with:
+
+  * hover-to-show (desktop)
+  * click-to-pin (touch-friendly)
+  * Markdown-style links
 * 📐 Pixel-accurate positioning (scales with image)
 * 🧩 Multiple sections per CSV
 * 🌐 Works on **GitHub Pages**
 * 🔗 Easy embedding via `<iframe>`
-* 🔒 No data stored in the repo ([CSV URL passed via query string](https://adrianartacho.github.io/UrlEncode/))
+* 🔒 No data stored in the repo (CSV URL passed via query string)
 
 ---
 
@@ -26,7 +42,7 @@ Each image can contain **clickable markers** (circle + label) positioned in pixe
 .
 ├── index.html   # Minimal HTML shell
 ├── app.js       # CSV parsing + rendering logic
-├── style.css    # Layout and marker styling
+├── style.css    # Layout, markers, popup styling
 └── README.md    # This file
 ```
 
@@ -51,7 +67,6 @@ Your site will be available at:
 
 ```
 https://YOUR_GITHUB_USERNAME.github.io/YOUR_REPO_NAME/
-
 ```
 
 ---
@@ -60,12 +75,14 @@ https://YOUR_GITHUB_USERNAME.github.io/YOUR_REPO_NAME/
 
 The CSV defines **sections** and **items**.
 
+---
+
 ### Section rows
 
 A row whose **first column is an integer** starts a new section:
 
 ```
-0, image, title, subtitle, 100%, -150
+0, imageURL, title, subtitle, 100%, -150
 ```
 
 | Column | Meaning                                                    |
@@ -93,26 +110,65 @@ Rows following a section define markers for that image:
 Roland, https://roland.com, 100, 100, green, 15
 ```
 
-| Column | Meaning                   |
-| ------ | ------------------------- |
-| A      | Label text                |
-| B      | Link URL (opens on click) |
-| C      | X position (pixels)       |
-| D      | Y position (pixels)       |
-| E      | Circle color (CSS color)  |
-| F      | Circle radius (pixels)    |
+| Column | Meaning                              |
+| ------ | ------------------------------------ |
+| A      | Label text (shown inside the circle) |
+| B      | **URL or text content** (see below)  |
+| C      | X position (pixels)                  |
+| D      | Y position (pixels)                  |
+| E      | Circle color (CSS color)             |
+| F      | Circle radius (pixels)               |
 
-Example:
+---
+
+## 🔀 Marker Behavior (URL vs Text)
+
+### 1️⃣ URL markers (navigation)
+
+If **column B starts with** `http://`, `https://`, or `mailto:`:
 
 ```
-Yamaha,https://yamaha.com,240,180,blue,18
+Roland,https://roland.com,100,100,green,15
 ```
 
-Markers are rendered as:
+**Behavior**
 
-* a semi-transparent circle
-* label text **centered inside the circle**
-* entire marker is clickable
+* Clicking the marker opens the link in a new tab.
+
+---
+
+### 2️⃣ Text markers (popup bubbles)
+
+If **column B is NOT a URL**, it is treated as **popup content**:
+
+```
+Roland,"Try [Roland](https://roland.com) or [Yamaha](https://yamaha.com).",100,100,green,15
+```
+
+**Behavior**
+
+* 🖱 **Hover** over marker → popup appears
+* 🖱 Move away → popup disappears (slight delay)
+* 👆 **Click** marker → popup is *pinned* (important for touch devices)
+* ❌ Click outside or close button → popup closes
+
+---
+
+## 📝 Popup Content & Markdown
+
+Popup text supports **Markdown-style links**:
+
+```
+[Link text](https://example.com)
+```
+
+Supported features:
+
+* Markdown links
+* Line breaks
+* Automatic HTML escaping for safety
+
+❌ Raw HTML is **not allowed** (for security reasons).
 
 ---
 
@@ -125,9 +181,9 @@ Markers are rendered as:
 
    * Format: **CSV**
    * Sheet: desired sheet
-5. Copy the generated [CSV URL](https://adrianartacho.github.io/UrlEncode/)
+5. Copy the generated CSV URL
 
-Typical Google Sheets [CSV URL](https://adrianartacho.github.io/UrlEncode/):
+Typical Google Sheets CSV URL:
 
 ```
 https://docs.google.com/spreadsheets/d/e/XXXX/pub?gid=0&single=true&output=csv
@@ -141,10 +197,12 @@ Open the GitHub Pages URL with a `csv` query parameter:
 
 ```
 https://YOURNAME.github.io/YOURREPO/?csv=URL_ENCODED_CSV_URL
-
 ```
 
-The CSV URL [**must be URL-encoded**](https://adrianartacho.github.io/UrlEncode/).
+The CSV URL **must be URL-encoded**.
+
+A helper tool is available here:
+👉 [https://adrianartacho.github.io/UrlEncode/](https://adrianartacho.github.io/UrlEncode/)
 
 ---
 
@@ -179,7 +237,8 @@ You can easily adjust:
 * circle opacity
 * label font size
 * colors
-* marker hover effects
+* popup appearance
+* hover timing
 * image borders and rounding
 
 Example marker text styling:
@@ -201,6 +260,7 @@ Example marker text styling:
 
 * Rendering uses **SVG overlays** aligned to the image’s natural size.
 * Coordinates are **pixel-accurate** and scale responsively.
+* Popup positioning adapts to viewport size.
 * No external libraries.
 * No cookies, no tracking, no storage.
 * Works in all modern browsers.
@@ -215,13 +275,12 @@ Example marker text styling:
 * Annotated scores or diagrams
 * Educational walkthroughs
 * Spatial storytelling
+* Contextual documentation layered on images
 
 ---
 
 ## 📄 License
 
 MIT — free to use, modify, and embed.
+Developed by [Adrián Artacho](https://www.artacho.at/).
 
----
-
-## 📋 [To-Do](https://trello.com/c/k7r3NHjB/122-%F0%9F%95%B9stationen)
