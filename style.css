@@ -95,3 +95,44 @@ a.marker {
   border-color: #ffd2d2;
   background: #fff5f5;
 }
+
+/* ===== popup bubble for text markers ===== */
+
+.popup {
+  position: absolute;
+  z-index: 5;
+  max-width: min(320px, calc(100% - 24px));
+  background: rgba(255, 255, 255, 0.95);
+  border: 1px solid rgba(0,0,0,0.12);
+  border-radius: 10px;
+  padding: 10px 12px;
+  box-shadow: 0 10px 30px rgba(0,0,0,0.18);
+  font-size: 13px;
+  line-height: 1.35;
+}
+
+.popup.hidden {
+  display: none;
+}
+
+.popup .close {
+  position: absolute;
+  top: 6px;
+  right: 8px;
+  border: none;
+  background: transparent;
+  cursor: pointer;
+  font-size: 16px;
+  line-height: 1;
+  opacity: 0.65;
+}
+
+.popup .close:hover {
+  opacity: 1;
+}
+
+.popup .content a {
+  color: inherit;
+  text-decoration: underline;
+}
+
