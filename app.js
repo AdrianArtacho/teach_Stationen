@@ -1,7 +1,10 @@
 // app.js
 // CSV-driven image overlay (GitHub Pages friendly)
-// Adds: if item "linkUrl" is not a URL, it opens a popup bubble with that text.
-// Bubble supports markdown links: [label](https://example.com)
+// Adds "bubble text" markers:
+// - If item column B is a navigable URL (http/https/mailto): clicking marker opens link (new tab)
+// - Otherwise: marker shows a popup bubble (supports markdown links [label](https://...))
+//   * Hover shows bubble (desktop)
+//   * Click pins/unpins bubble (touch-friendly)
 
 function getCsvUrlFromQuery() {
   const u = new URL(window.location.href);
@@ -87,7 +90,7 @@ function parseNumberCell(cell, fallback = 0) {
   return Number.isFinite(v) ? v : fallback;
 }
 
-/** Treat as URL only if it’s something the browser can actually navigate to. */
+/** Treat as URL only if it’s something we want to navigate to. */
 function isNavigableUrl(s) {
   if (!s) return false;
   const t = String(s).trim();
@@ -116,19 +119,16 @@ function mdToSafeHtml(input) {
   const escaped = escapeHtml(input);
 
   // Convert markdown links: [text](url)
-  const linked = escaped.replace(
-    /\[([^\]]+)\]\(([^)]+)\)/g,
-    (_, label, url) => {
-      const href = url.trim();
-      // Only allow http(s) / mailto in rendered links
-      if (!isNavigableUrl(href)) {
-        return `${escapeHtml(label)} (${escapeHtml(href)})`;
-      }
-      const safeLabel = label; // already escaped
-      const safeHref = escapeHtml(href);
-      return `<a href="${safeHref}" target="_blank" rel="noopener noreferrer">${safeLabel}</a>`;
+  const linked = escaped.replace(/\[([^\]]+)\]\(([^)]+)\)/g, (_, label, url) => {
+    const href = url.trim();
+    // Only allow http(s) / mailto in rendered links
+    if (!isNavigableUrl(href)) {
+      return `${escapeHtml(label)} (${escapeHtml(href)})`;
     }
-  );
+    const safeLabel = label; // already escaped
+    const safeHref = escapeHtml(href);
+    return `<a href="${safeHref}" target="_blank" rel="noopener noreferrer">${safeLabel}</a>`;
+  });
 
   // Newlines -> <br>
   return linked.replace(/\n/g, "<br>");
@@ -175,7 +175,7 @@ function rowsToSections(rows) {
 
     current.items.push({
       name,
-      linkOrText: rawLinkOrText,     // can be URL or plain text
+      linkOrText: rawLinkOrText, // can be URL or plain text
       isUrl: isNavigableUrl(rawLinkOrText),
       x,
       y,
@@ -194,8 +194,6 @@ function createPopupEl() {
     <button class="close" aria-label="Close">×</button>
     <div class="content"></div>
   `;
-  const closeBtn = popup.querySelector(".close");
-  closeBtn.addEventListener("click", () => popup.classList.add("hidden"));
   return popup;
 }
 
@@ -234,7 +232,8 @@ function createSectionEl(section) {
     const titleWrap = document.createElement("div");
     titleWrap.className = "title-overlay";
 
-    // -150 => down by 150px
+    // Convention used earlier:
+    // -150 => move DOWN 150px into the image
     titleWrap.style.transform = `translateY(${Math.abs(dyPx)}px)`;
 
     if (section.title) {
@@ -264,9 +263,40 @@ function createSectionEl(section) {
   const popup = createPopupEl();
   stage.appendChild(popup);
 
+  const closeBtn = popup.querySelector(".close");
+  const contentEl = popup.querySelector(".content");
+
+  // Hover/pin state
+  let hideTimer = null;
+  let pinned = false;
+
+  function clearHideTimer() {
+    if (hideTimer) {
+      clearTimeout(hideTimer);
+      hideTimer = null;
+    }
+  }
+
   function hidePopup() {
     popup.classList.add("hidden");
   }
+
+  function scheduleHidePopup(delayMs = 220) {
+    clearHideTimer();
+    hideTimer = setTimeout(() => {
+      if (!pinned) hidePopup();
+    }, delayMs);
+  }
+
+  // Keep open while hovering the popup itself
+  popup.addEventListener("mouseenter", () => clearHideTimer());
+  popup.addEventListener("mouseleave", () => scheduleHidePopup(220));
+
+  closeBtn.addEventListener("click", (e) => {
+    e.stopPropagation();
+    pinned = false;
+    hidePopup();
+  });
 
   // Close popup when clicking outside markers/popup
   stage.addEventListener("click", (e) => {
@@ -275,6 +305,7 @@ function createSectionEl(section) {
       if (t.closest(".popup")) return;
       if (t.closest("a.marker")) return;
     }
+    pinned = false;
     hidePopup();
   });
 
@@ -297,33 +328,28 @@ function createSectionEl(section) {
       const x = pxX * sx;
       const y = pxY * sy;
 
-      // Place popup slightly above/right of marker; clamp inside stage
       const pad = 8;
-      popup.style.left = "0px";
-      popup.style.top = "0px";
+
+      // Show first so size is measurable
       popup.classList.remove("hidden");
 
-      // First set near target, then clamp once we know popup size
+      // Initial placement near marker
       popup.style.left = `${x + pad}px`;
       popup.style.top = `${y + pad}px`;
 
-      // Clamp to stage
+      // Clamp after measuring
+      const stageRect = stage.getBoundingClientRect();
       const pRect = popup.getBoundingClientRect();
-      const maxLeft = rect.left + rect.width - pRect.width - pad;
-      const maxTop = rect.top + rect.height - pRect.height - pad;
 
       let newLeft = x + pad;
       let newTop = y + pad;
 
-      // If it would overflow right/bottom, move to left/top side of marker
-      if (pRect.left > maxLeft) newLeft = x - pRect.width - pad;
-      if (pRect.top > maxTop) newTop = y - pRect.height - pad;
+      // If it would overflow right/bottom, flip to left/top of marker
+      if (pRect.right > stageRect.right - pad) newLeft = x - pRect.width - pad;
+      if (pRect.bottom > stageRect.bottom - pad) newTop = y - pRect.height - pad;
 
-      // Convert viewport coords to stage-local coords for final clamp
-      // (stage is positioned relative; popup is absolute inside it)
-      const stageRect = rect;
+      // Clamp within stage bounds (stage-local coords)
       const clamp = (v, min, max) => Math.max(min, Math.min(max, v));
-
       newLeft = clamp(newLeft, pad, rect.width - pRect.width - pad);
       newTop = clamp(newTop, pad, rect.height - pRect.height - pad);
 
@@ -351,17 +377,48 @@ function createSectionEl(section) {
         a.setAttribute("target", "_blank");
         a.setAttribute("rel", "noopener noreferrer");
       } else {
-        // Make it behave like a clickable marker without navigation
+        // Text bubble marker: hover shows; click pins/unpins
         a.setAttribute("href", "#");
+
+        const show = () => {
+          clearHideTimer();
+          contentEl.innerHTML = mdToSafeHtml(it.linkOrText || "");
+          lastPopupPos = { x: it.x, y: it.y };
+          positionPopupAt(it.x, it.y);
+        };
+
+        // Hover / pointer interactions
+        a.addEventListener("pointerenter", (ev) => {
+          ev.preventDefault();
+          ev.stopPropagation();
+          pinned = false; // hovering resets pin
+          show();
+        });
+
+        a.addEventListener("pointerleave", (ev) => {
+          ev.preventDefault();
+          ev.stopPropagation();
+          scheduleHidePopup(220);
+        });
+
+        // Click toggles pin (important for mobile)
         a.addEventListener("click", (ev) => {
           ev.preventDefault();
           ev.stopPropagation();
 
-          const content = popup.querySelector(".content");
-          content.innerHTML = mdToSafeHtml(it.linkOrText || "");
+          const sameMarker =
+            lastPopupPos && lastPopupPos.x === it.x && lastPopupPos.y === it.y;
 
-          lastPopupPos = { x: it.x, y: it.y };
-          positionPopupAt(it.x, it.y);
+          // If hidden or different marker, show and pin
+          if (popup.classList.contains("hidden") || !sameMarker) {
+            pinned = true;
+            show();
+            return;
+          }
+
+          // Same marker: toggle pin/hide
+          pinned = !pinned;
+          if (!pinned) hidePopup();
         });
       }
 
