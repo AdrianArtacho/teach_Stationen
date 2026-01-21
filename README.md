@@ -10,7 +10,7 @@ Markers can either:
 * open **external links**, or
 * display **contextual popup bubbles** with rich text and Markdown-style links.
 
-![stationen](img/stationen.png)
+![stationen](img/gui.png)
 
 ---
 
